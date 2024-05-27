@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title></title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <!-- <script src='jquery-3.7.1.js'></script> -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+
+    <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v0.18.0/mapbox-gl-draw.js'></script>
+    <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v0.18.0/mapbox-gl-draw.css' type='text/css'/>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+        body { margin:0; padding:0; }
+        #map { position:absolute; top:0; bottom:0; width:100%;
+            cursor: crosshair; 
+        z-index:-1}
+    </style>
+</head>
+<body>
+
+<style>
+/* .boxdraw {
+    background: rgba(56,135,190,0.1);
+    border: 2px solid #3887be;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+} */
+#population{
+    z-index:1;
+    padding:10px;
+    font-size:24px;
+}
+</style>
+
+<div id='population'>population</div>
+<div id='map'></div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoiampqaWlhMTIzIiwiYSI6ImNpbDQ0Z2s1OTN1N3R1eWtzNTVrd29lMDIifQ.gSWjNbBSpIFzDXU2X5YCiQ';
+var map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/jjjiia123/clwozogbv04pd01qg856a1nvc',
+    center: [-98, 38.88],
+    minZoom: 2,
+    zoom: 3,
+    dragPan: false
+});
+
+var draw = new MapboxDraw({
+    displayControlsDefault: true,
+    controls: {
+        polygon: true,
+        trash: true
+    }
+});
+map.addControl(draw);
+
+// Disable default box zooming.
+// map.boxZoom.disable();
+map.dragRotate.disable();
+map.scrollZoom.disable();
+
+map.dragPan.disable();
+map.touchZoomRotate.disable()
+// Create a popup, but don't add it to the map yet.
+var popup = new mapboxgl.Popup({
+    closeButton: false
+});
+
+map.on('load', function() {
+    var mousedown = false
+    var coordinates = []
+
+    map.on('mousedown',function(e) {
+        mousedown = true
+        coordinates = []
+        map.setMaxBounds(map.getBounds())
+
+        var currentMouse = [e.lngLat.lng,e.lngLat.lat]
+        coordinates.push(currentMouse) 
+        coordinates.push(currentMouse) 
+        var line = turf.lineString(coordinates);     
+        // map.removeLayer('trace')
+        // map.removeSource('trace')
+        // if (map.getLayer("trace")) {
+        //         map.removeLayer("trace");
+        //     } 
+        //     if (map.getSource("trace")) {
+        //         map.removeLayer("trace");
+        //     }
+
+        map.addSource('trace', { type: 'geojson', data: line });
+        map.addLayer({
+            'id': 'trace',
+            'type': 'line',
+            'source': 'trace',
+            'paint': {
+                'line-color': '#ff00ff',
+                'line-opacity': 0.75,
+                'line-width': 5
+            }
+        });
+
+
+    })
+
+    map.on('mousemove',function(e){
+        if (mousedown==true){
+          //  console.log("true")
+            var currentMouse = [e.lngLat.lng,e.lngLat.lat]
+            coordinates.push(currentMouse)
+            var line = turf.lineString(coordinates);    
+       //     console.log(coordinates) 
+            map.getSource('trace').setData(line);
+        }
+        })
+
+    map.on('mouseup',function(){
+        mousedown = false
+        //console.log(mousedown,'up')
+        coordinates.push(coordinates[0])
+        var polygon = turf.polygon([coordinates]);   
+        map.getSource('trace').setData(polygon);
+
+      //  console.log(turf.polygon([coordinates]))
+
+      //  console.log(coordinates)
+        
+       // console.log(coordinates)
+      //  var line = turf.lineString(coordinates);     
+        var polygonBoundingBox = turf.bbox(polygon);
+
+        var southWest = [polygonBoundingBox[0], polygonBoundingBox[1]];
+        var northEast = [polygonBoundingBox[2], polygonBoundingBox[3]];
+
+        var northEastPointPixel = map.project(northEast);
+        var southWestPointPixel = map.project(southWest);
+        var features = map.queryRenderedFeatures([southWestPointPixel, northEastPointPixel], { layers: ['counties'] });
+        var population = 0
+        var filter = features.reduce(function(memo, feature) {
+            if(turf.intersect(feature,polygon)){
+                memo.push(feature.properties.FIPS);
+                population+=feature.properties.population
+            }
+            d3.select("#population").html(population)
+        return memo;
+        }, ['in', 'FIPS'])
+        
+        map.setFilter("counties-highlighted", filter);
+
+    })
+
+ 
+    // Add the source to query. In this example we're using
+    // county polygons uploaded as vector tiles
+    map.addSource('counties', {
+        "type": "vector",
+        "url": "mapbox://mapbox.82pkq93d"
+    });
+
+    map.addLayer({
+        "id": "counties",
+        "type": "fill",
+        "source": "counties",
+        "source-layer": "original",
+        "paint": {
+            "fill-outline-color": "#ff00ff",
+            "fill-color": "#ff00ff",
+            "fill-opacity": 0.1
+        }
+    }); // Place polygon under these labels.
+
+    map.addLayer({
+        "id": "counties-highlighted",
+        "type": "fill",
+        "source": "counties",
+        "source-layer": "original",
+        "paint": {
+            "fill-outline-color": "#ff00ff",
+            "fill-color": "#ff00ff",
+            "fill-opacity": 0.4
+        },
+        "filter": ["in", "FIPS", ""]
+    }); // Place polygon under these labels.
+
+    map.on('draw.create', function(e){
+    
+        var userPolygon = e.features[0];
+     //   console.log(e.features[0])
+
+        // generate bounding box from polygon the user drew
+        var polygonBoundingBox = turf.bbox(userPolygon);
+      
+        var southWest = [polygonBoundingBox[0], polygonBoundingBox[1]];
+        var northEast = [polygonBoundingBox[2], polygonBoundingBox[3]];
+
+        var northEastPointPixel = map.project(northEast);
+        var southWestPointPixel = map.project(southWest);
+
+        var features = map.queryRenderedFeatures([southWestPointPixel, northEastPointPixel], { layers: ['counties'] });
+
+        var filter = features.reduce(function(memo, feature) {
+            if(turf.intersect(feature,userPolygon)){
+                memo.push(feature.properties.FIPS);
+            }
+        return memo;
+        }, ['in', 'FIPS']);
+       // console.log(filter)
+        map.setFilter("counties-highlighted", filter);
+
+    }); 
+})
+
+
+</script>
+
+</body>
+</html>
