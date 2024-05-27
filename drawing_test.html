@@ -111,9 +111,11 @@ map.on('load', function() {
         mousedown = false
         //console.log(mousedown,'up')
         coordinates.push(coordinates[0])
+        var line = turf.lineString(coordinates);    
+        map.getSource('trace').setData(line);
+
       //  console.log(coordinates)
         
-        var userFeature = 
        // console.log(coordinates)
         var line = turf.lineString(coordinates);     
         var polygonBoundingBox = turf.bbox(line);
