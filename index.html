@@ -7,9 +7,7 @@
     <!-- <script src='jquery-3.7.1.js'></script> -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 
-    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.38.0/mapbox-gl.js'></script>
     <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
-    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.38.0/mapbox-gl.css' rel='stylesheet' />
 
     <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v0.18.0/mapbox-gl-draw.js'></script>
     <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v0.18.0/mapbox-gl-draw.css' type='text/css'/>
@@ -23,7 +21,7 @@
 <body>
 
 <style>
-.boxdraw {
+/* .boxdraw {
     background: rgba(56,135,190,0.1);
     border: 2px solid #3887be;
     position: absolute;
@@ -31,7 +29,7 @@
     left: 0;
     width: 0;
     height: 0;
-}
+} */
 </style>
 
 <div id='map'></div>
@@ -45,50 +43,102 @@ var map = new mapboxgl.Map({
     minZoom: 2,
     zoom: 3,
     dragPan: false
-
 });
 
 var draw = new MapboxDraw({
-    displayControlsDefault: false,
+    displayControlsDefault: true,
     controls: {
         polygon: true,
-        lasso:true,
         trash: true
     }
 });
 map.addControl(draw);
 
 // Disable default box zooming.
-map.boxZoom.disable();
+// map.boxZoom.disable();
 map.dragRotate.disable();
-map.dragPan.disable();
+map.scrollZoom.disable();
 
+map.dragPan.disable();
+map.touchZoomRotate.disable()
 // Create a popup, but don't add it to the map yet.
 var popup = new mapboxgl.Popup({
     closeButton: false
 });
 
 map.on('load', function() {
-var freehand = false
-map.on('mousedown',function(e) {
+    var mousedown = false
     var coordinates = []
-    freehand = true
 
-    var currentMouse = [e.lngLat.lng,e.lngLat.lat]
-    coordinates.push(currentMouse)
-    map.on('mousemove',function(e){
+    map.on('mousedown',function(e) {
+        mousedown = true
+        coordinates = []
+        map.setMaxBounds(map.getBounds())
+
         var currentMouse = [e.lngLat.lng,e.lngLat.lat]
-        coordinates.push(currentMouse)
+        coordinates.push(currentMouse) 
+        coordinates.push(currentMouse) 
+        var line = turf.lineString(coordinates);     
+        // map.removeLayer('trace')
+        // map.removeSource('trace')
+        map.addSource('trace', { type: 'geojson', data: line });
+        map.addLayer({
+            'id': 'trace',
+            'type': 'line',
+            'source': 'trace',
+            'paint': {
+                'line-color': 'black',
+                'line-opacity': 0.75,
+                'line-width': 5
+            }
+        });
+
 
     })
+
+    map.on('mousemove',function(e){
+        if (mousedown==true){
+            console.log("true")
+            var currentMouse = [e.lngLat.lng,e.lngLat.lat]
+            coordinates.push(currentMouse)
+            var line = turf.lineString(coordinates);    
+            console.log(coordinates) 
+            map.getSource('trace').setData(line);
+        }
+        })
+
     map.on('mouseup',function(){
-        console.log(coordinates)
+        mousedown = false
+        //console.log(mousedown,'up')
+        coordinates.push(coordinates[0])
+        var line = turf.lineString(coordinates);    
+        map.getSource('trace').setData(line);
+
+      //  console.log(coordinates)
+        
+       // console.log(coordinates)
+        var line = turf.lineString(coordinates);     
+        var polygonBoundingBox = turf.bbox(line);
+
+        var southWest = [polygonBoundingBox[0], polygonBoundingBox[1]];
+        var northEast = [polygonBoundingBox[2], polygonBoundingBox[3]];
+
+        var northEastPointPixel = map.project(northEast);
+        var southWestPointPixel = map.project(southWest);
+        var features = map.queryRenderedFeatures([southWestPointPixel, northEastPointPixel], { layers: ['counties'] });
+
+        var filter = features.reduce(function(memo, feature) {
+           // if(turf.intersect(feature,userPolygon)){
+                memo.push(feature.properties.FIPS);
+           // }
+        return memo;
+        }, ['in', 'FIPS'])
+        
+        map.setFilter("counties-highlighted", filter);
+
     })
 
-    console.log(e)
-
-})
-   
+ 
     // Add the source to query. In this example we're using
     // county polygons uploaded as vector tiles
     map.addSource('counties', {
@@ -123,7 +173,7 @@ map.on('mousedown',function(e) {
     map.on('draw.create', function(e){
     
         var userPolygon = e.features[0];
-        console.log(e)
+        console.log(e.features[0])
 
         // generate bounding box from polygon the user drew
         var polygonBoundingBox = turf.bbox(userPolygon);
@@ -142,13 +192,13 @@ map.on('mousedown',function(e) {
             }
         return memo;
         }, ['in', 'FIPS']);
-
+console.log(filter)
         map.setFilter("counties-highlighted", filter);
 
     }); 
+})
 
 
-});
 </script>
 
 </body>
