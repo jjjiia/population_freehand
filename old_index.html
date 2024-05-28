@@ -13,12 +13,9 @@
     <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v0.18.0/mapbox-gl-draw.css' type='text/css'/>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
-<script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
         body { margin:0; padding:0; }
-        #map { position:absolute; top:0; bottom:0; width:100%;
-            cursor: crosshair; 
-        z-index:-1}
+        #map { position:absolute; top:0; bottom:0; width:100%; }
     </style>
 </head>
 <body>
@@ -33,21 +30,15 @@
     width: 0;
     height: 0;
 } */
-#population{
-    z-index:1;
-    padding:10px;
-    font-size:24px;
-}
 </style>
 
-<div id='population'>population</div>
 <div id='map'></div>
 
 <script>
-mapboxgl.accessToken = 'pk.eyJ1IjoiampqaWlhMTIzIiwiYSI6ImNpbDQ0Z2s1OTN1N3R1eWtzNTVrd29lMDIifQ.gSWjNbBSpIFzDXU2X5YCiQ';
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2hhcmxpZWRvdGF1IiwiYSI6ImNpazlpdzh0ZTA5d3Z2Y200emhqbml1OGEifQ.uoA6t5rO18m0BgNGPXsm5A';
 var map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/jjjiia123/clwozogbv04pd01qg856a1nvc',
+    style: 'mapbox://styles/mapbox/streets-v9',
     center: [-98, 38.88],
     minZoom: 2,
     zoom: 3,
@@ -90,20 +81,13 @@ map.on('load', function() {
         var line = turf.lineString(coordinates);     
         // map.removeLayer('trace')
         // map.removeSource('trace')
-        // if (map.getLayer("trace")) {
-        //         map.removeLayer("trace");
-        //     } 
-        //     if (map.getSource("trace")) {
-        //         map.removeLayer("trace");
-        //     }
-
         map.addSource('trace', { type: 'geojson', data: line });
         map.addLayer({
             'id': 'trace',
             'type': 'line',
             'source': 'trace',
             'paint': {
-                'line-color': '#ff00ff',
+                'line-color': 'black',
                 'line-opacity': 0.75,
                 'line-width': 5
             }
@@ -114,11 +98,11 @@ map.on('load', function() {
 
     map.on('mousemove',function(e){
         if (mousedown==true){
-          //  console.log("true")
+            console.log("true")
             var currentMouse = [e.lngLat.lng,e.lngLat.lat]
             coordinates.push(currentMouse)
             var line = turf.lineString(coordinates);    
-       //     console.log(coordinates) 
+            console.log(coordinates) 
             map.getSource('trace').setData(line);
         }
         })
@@ -127,16 +111,14 @@ map.on('load', function() {
         mousedown = false
         //console.log(mousedown,'up')
         coordinates.push(coordinates[0])
-        var polygon = turf.polygon([coordinates]);   
-        map.getSource('trace').setData(polygon);
-
-      //  console.log(turf.polygon([coordinates]))
+        var line = turf.lineString(coordinates);    
+        map.getSource('trace').setData(line);
 
       //  console.log(coordinates)
         
        // console.log(coordinates)
-      //  var line = turf.lineString(coordinates);     
-        var polygonBoundingBox = turf.bbox(polygon);
+        var line = turf.lineString(coordinates);     
+        var polygonBoundingBox = turf.bbox(line);
 
         var southWest = [polygonBoundingBox[0], polygonBoundingBox[1]];
         var northEast = [polygonBoundingBox[2], polygonBoundingBox[3]];
@@ -144,13 +126,11 @@ map.on('load', function() {
         var northEastPointPixel = map.project(northEast);
         var southWestPointPixel = map.project(southWest);
         var features = map.queryRenderedFeatures([southWestPointPixel, northEastPointPixel], { layers: ['counties'] });
-        var population = 0
+
         var filter = features.reduce(function(memo, feature) {
-            if(turf.intersect(feature,polygon)){
+           // if(turf.intersect(feature,userPolygon)){
                 memo.push(feature.properties.FIPS);
-                population+=feature.properties.population
-            }
-            d3.select("#population").html(population)
+           // }
         return memo;
         }, ['in', 'FIPS'])
         
@@ -172,11 +152,10 @@ map.on('load', function() {
         "source": "counties",
         "source-layer": "original",
         "paint": {
-            "fill-outline-color": "#ff00ff",
-            "fill-color": "#ff00ff",
-            "fill-opacity": 0.1
+            "fill-outline-color": "rgba(0,0,0,0.1)",
+            "fill-color": "rgba(0,0,0,0.1)"
         }
-    }); // Place polygon under these labels.
+    }, 'place-city-sm'); // Place polygon under these labels.
 
     map.addLayer({
         "id": "counties-highlighted",
@@ -184,17 +163,17 @@ map.on('load', function() {
         "source": "counties",
         "source-layer": "original",
         "paint": {
-            "fill-outline-color": "#ff00ff",
-            "fill-color": "#ff00ff",
-            "fill-opacity": 0.4
+            "fill-outline-color": "#484896",
+            "fill-color": "#6e599f",
+            "fill-opacity": 0.75
         },
         "filter": ["in", "FIPS", ""]
-    }); // Place polygon under these labels.
+    }, 'place-city-sm'); // Place polygon under these labels.
 
     map.on('draw.create', function(e){
     
         var userPolygon = e.features[0];
-     //   console.log(e.features[0])
+        console.log(e.features[0])
 
         // generate bounding box from polygon the user drew
         var polygonBoundingBox = turf.bbox(userPolygon);
@@ -213,7 +192,7 @@ map.on('load', function() {
             }
         return memo;
         }, ['in', 'FIPS']);
-       // console.log(filter)
+console.log(filter)
         map.setFilter("counties-highlighted", filter);
 
     }); 
